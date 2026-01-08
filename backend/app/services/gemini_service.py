@@ -253,3 +253,98 @@ class GeminiService:
         response = self.read_pdf_with_context(pdf_path, prompt)
         # 这里可以尝试解析JSON，如果失败则返回原始文本
         return {"raw_analysis": response}
+
+    def explain_formula(
+        self,
+        pdf_path: str,
+        selected_text: Optional[str] = None,
+        image_base64: Optional[str] = None,
+        page_num: Optional[int] = None
+    ) -> str:
+        """
+        解释数学公式 - 支持文本或图片输入
+
+        Args:
+            pdf_path: PDF文件路径（用于获取上下文）
+            selected_text: 选中的文本（可能包含公式）
+            image_base64: 截图的base64数据
+            page_num: 页码
+
+        Returns:
+            公式解释（包含LaTeX格式）
+        """
+        pdf_base64 = self._pdf_to_base64(pdf_path)
+
+        # 构建提示词
+        formula_prompt = f"""你是一个专业的数学公式解释助手。请分析用户提供的公式，并给出详细解释。
+
+{"用户从第" + str(page_num) + "页选中了以下内容：" if page_num else "用户选中了以下内容："}
+{"'" + selected_text + "'" if selected_text else "（见图片）"}
+
+请按以下格式回答：
+
+## 公式识别
+
+首先，将公式转换为标准的 LaTeX 格式（用 $...$ 包裹行内公式，用 $$...$$ 包裹独立公式）。
+
+## 符号说明
+
+逐一解释公式中每个符号/字母的含义：
+- **符号**: 含义（包括单位，如果适用）
+
+## 公式含义
+
+用通俗易懂的语言解释这个公式表达的物理/数学含义。
+
+## 上下文分析
+
+根据PDF文档的内容：
+1. 这个公式在文档中的作用是什么？
+2. 它与文档中其他内容有什么关联？
+3. 这个公式在后续内容中是否还会用到？如何使用？
+
+## 重要性评估
+
+- **重要程度**: ⭐⭐⭐⭐⭐ (1-5星)
+- **理由**: 为什么这个公式重要/不重要
+- **考试提示**: 这个公式是否可能出现在考试中？需要记忆还是理解推导？
+
+## 相关公式
+
+列出文档中与此公式相关的其他公式（如果有）。
+
+请用中文回答，确保解释清晰、准确。"""
+
+        # 构建消息内容
+        content = [
+            {
+                "type": "text",
+                "text": formula_prompt
+            },
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:application/pdf;base64,{pdf_base64}"
+                }
+            }
+        ]
+
+        # 如果有截图，也添加进去
+        if image_base64:
+            # 移除可能的 data URL 前缀
+            if image_base64.startswith('data:'):
+                image_base64 = image_base64.split(',')[1]
+
+            content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/png;base64,{image_base64}"
+                }
+            })
+
+        messages = [{
+            "role": "user",
+            "content": content
+        }]
+
+        return self._call_gemini_api(messages, max_tokens=3000)
