@@ -1,23 +1,37 @@
 # 🎓 Final Exam Reviewer - AI复习助手
 
 一个基于AI的智能PDF学习助手，帮助学生更高效地复习和理解学习资料。
-本项目在windows11开发，主要命令终端cmd，所生成的一切命令必须服务于这条规则
+
+> 本项目在 Windows 11 开发，主要使用 CMD 终端
+
 ## ✨ 主要功能
 
 ### 📄 PDF文档管理
 - 上传和管理多个PDF文档
 - 自动识别文档页数和大小
 - 检测是否为扫描版PDF
+- **双阅读模式**: 翻页模式 / 连续滚动模式
+- **文本选择**: 支持鼠标框选PDF中的文字
 
 ### 💬 智能对话
 - 与AI助手对话，提问关于文档的任何问题
 - 保存完整的对话历史
 - 支持上下文理解，记忆之前的对话
+- **Markdown渲染**: 支持代码高亮、列表等格式
+- **LaTeX公式渲染**: 使用KaTeX渲染数学公式
 
-### 🔍 文本分析
+### 🔍 文本分析（选中文字自动弹出菜单）
 - **解释功能**: 选中文字即可获得详细解释
 - **翻译功能**: 支持多语言翻译
 - **总结功能**: 快速总结长段文字的要点
+- **定义术语**: 解释专业术语
+- **举例说明**: 用实例解释概念
+- **生成问题**: 基于选中内容生成复习题
+
+### 📐 公式识别与解释
+- **文本公式解释**: 选中公式文本，点击"解释公式"
+- **截图公式识别**: 框选PDF中的公式图片进行OCR识别
+- **详细解析**: 包含符号说明、公式含义、上下文分析、重要性评估、相关公式
 
 ### 📝 文档摘要
 - 一键生成整篇PDF的完整摘要
@@ -35,28 +49,45 @@
 
 #### 启动后端服务
 
-打开 CMD，执行：
-
+**推荐方式 - 使用批处理脚本：**
 ```
+双击运行 clean_start.bat
+```
+该脚本会自动清理缓存并启动服务器。
+
+**手动启动：**
+```cmd
 cd E:\11Projects\FInalExamReviewer\backend
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 #### 关闭后端服务
 
-方法1：在运行服务的 CMD 窗口按 Ctrl+C
+方法1：在运行服务的 CMD 窗口按 `Ctrl+C`
 
 方法2：新开 CMD 窗口执行：
-
-```
+```cmd
 taskkill /F /IM python.exe
 ```
 
 #### 访问地址
 
-- 前端页面：直接用浏览器打开 frontend/index.html
-- API文档：http://localhost:8000/docs
-- 健康检查：http://localhost:8000/health
+| 地址 | 说明 |
+|------|------|
+| `frontend/index.html` | 前端页面（直接用浏览器打开） |
+| http://localhost:8000/docs | API文档 (Swagger UI) |
+| http://localhost:8000/redoc | API文档 (ReDoc) |
+| http://localhost:8000/health | 健康检查 |
+
+### 批处理脚本说明
+
+| 脚本 | 功能 |
+|------|------|
+| `clean_start.bat` | 清理缓存并启动服务器（推荐） |
+| `start_server.bat` | 直接启动服务器 |
+| `fix_and_start.bat` | 升级依赖后启动 |
+| `test_api.bat` | 测试公式API |
+| `test_main.bat` | 测试路由加载 |
 
 ### 安装步骤
 
@@ -101,8 +132,10 @@ FInalExamReviewer/
 │   │   ├── database/          # 数据库模型
 │   │   ├── models/            # Pydantic模型
 │   │   ├── routes/            # API路由
+│   │   │   ├── __init__.py
 │   │   │   ├── pdf_routes.py
 │   │   │   ├── chat_routes.py
+│   │   │   ├── formula_routes.py  # 公式解释API
 │   │   │   └── annotation_routes.py
 │   │   ├── services/          # 业务逻辑
 │   │   │   ├── gemini_service.py
@@ -111,12 +144,14 @@ FInalExamReviewer/
 │   ├── main.py                # FastAPI主程序
 │   └── requirements.txt       # Python依赖
 ├── frontend/                   # 前端代码
-│   ├── index.html
-│   ├── styles.css
-│   └── app.js
+│   ├── index.html             # 主页面（含KaTeX、PDF.js）
+│   ├── styles.css             # 样式（含阅读模式、截图遮罩）
+│   └── app.js                 # 逻辑（含公式识别、文本层渲染）
 ├── database/                   # SQLite数据库
 ├── uploads/                    # 上传的PDF文件
+├── memory/                     # 开发记录（Claude Code用）
 ├── test/                       # 测试文件和报告
+├── *.bat                       # Windows批处理脚本
 ├── .env                        # 环境变量
 └── README.md
 ```
@@ -128,11 +163,14 @@ FInalExamReviewer/
 - **SQLAlchemy**: ORM数据库操作
 - **SQLite**: 轻量级数据库
 - **PyPDF2**: PDF文件处理
-- **Gemini AI**: Google的多模态AI模型
+- **Gemini AI**: Google的多模态AI模型（通过OpenAI兼容代理）
 
 ### 前端
 - **原生JavaScript**: 无框架依赖
-- **PDF.js**: PDF渲染引擎
+- **PDF.js**: PDF渲染引擎 + 文本层支持
+- **KaTeX**: LaTeX数学公式渲染
+- **marked.js**: Markdown渲染
+- **highlight.js**: 代码语法高亮
 - **纯CSS**: 响应式设计
 
 ## 📖 API文档
@@ -156,7 +194,13 @@ FInalExamReviewer/
 - `POST /api/chat/explain` - 解释文本
 - `POST /api/chat/translate` - 翻译文本
 - `POST /api/chat/summarize` - 总结文本
+- `POST /api/chat/define` - 定义术语
+- `POST /api/chat/example` - 举例说明
+- `POST /api/chat/generate-questions` - 生成问题
 - `GET /api/chat/{pdf_id}/conversations` - 获取对话历史
+
+#### 公式解释
+- `POST /api/formula/explain` - 解释公式（支持文本或图片输入）
 
 #### 注释管理
 - `POST /api/annotations/` - 创建注释
@@ -173,22 +217,40 @@ FInalExamReviewer/
 
 ### 2. 查看和阅读
 - 点击左侧文档列表中的文档
-- 使用"上一页"/"下一页"按钮浏览
+- **切换阅读模式**: 点击顶部"📄 翻页"或"📜 滚动"按钮
+  - 翻页模式：使用"上一页"/"下一页"按钮浏览
+  - 滚动模式：连续滚动查看所有页面
 - 支持鼠标滚轮缩放
 
 ### 3. 与AI对话
 - 在右侧聊天框输入问题
 - 按回车或点击"发送"
 - AI会基于PDF内容回答
+- 支持Markdown格式和LaTeX公式渲染
 
 ### 4. 文本操作
 - 选中文档中的任意文字
-- 右键菜单选择操作：
+- **自动弹出菜单**，选择操作：
   - 💡 解释这段文字
   - 🌐 翻译
   - 📋 总结要点
+  - 📖 定义术语
+  - 📝 举例说明
+  - ❓ 生成问题
+  - 📐 解释公式
+  - ➕ 添加到输入框
 
-### 5. 生成摘要
+### 5. 公式识别
+- **文本公式**: 选中公式文本，点击菜单中的"📐 解释公式"
+- **图片公式**: 点击"📐 识别公式"按钮，框选PDF中的公式区域
+- AI会返回详细解析，包括：
+  - 符号说明
+  - 公式含义
+  - 上下文分析
+  - 重要性评估（⭐1-5星）
+  - 相关公式
+
+### 6. 生成摘要
 - 点击顶部"生成摘要"按钮
 - 切换到"摘要"标签页查看
 - 摘要会自动保存
@@ -215,10 +277,19 @@ python test/complete_api_test.py
 |------|------|------|
 | PDF上传 | ✅ | 支持50MB以内PDF |
 | PDF查看 | ✅ | 基于PDF.js |
+| 翻页模式 | ✅ | 左右翻页浏览 |
+| 滚动模式 | ✅ | 连续滚动浏览 |
+| 文本选择 | ✅ | PDF.js文本层 |
 | AI对话 | ✅ | Gemini 3 Flash Preview |
 | 文本解释 | ✅ | 理解选中内容 |
 | 文本翻译 | ✅ | 多语言支持 |
 | 文本总结 | ✅ | 提取关键要点 |
+| 定义术语 | ✅ | 解释专业术语 |
+| 举例说明 | ✅ | 用实例解释 |
+| 生成问题 | ✅ | 生成复习题 |
+| 公式解释 | ✅ | 文本/图片输入 |
+| LaTeX渲染 | ✅ | KaTeX |
+| Markdown渲染 | ✅ | marked.js |
 | 文档摘要 | ✅ | 完整文档分析 |
 | 对话历史 | ✅ | 自动保存 |
 | 笔记注释 | 🚧 | 开发中 |
@@ -251,6 +322,20 @@ python test/complete_api_test.py
 - 确保后端服务正在运行
 - 检查CORS配置
 - 使用支持file://协议的浏览器
+
+### 5. 公式解释失败
+- 确保后端服务已启动
+- 检查 http://localhost:8000/docs 是否有 Formula 分类
+- 如果没有，运行 `clean_start.bat` 重启服务
+
+### 6. SQLAlchemy 兼容性问题
+如果使用 Python 3.13 遇到错误：
+```cmd
+pip install --upgrade sqlalchemy
+```
+
+### 7. 服务器热重载不生效
+使用 `clean_start.bat` 代替手动启动，它会自动清理缓存
 
 ## 🤝 贡献
 
