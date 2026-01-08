@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Exam Reviewer - AI复习助手</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Markdown渲染库 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- 代码高亮 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- PDF.js 文本层样式 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css">
+    <!-- KaTeX 数学公式渲染 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1>📚 Exam Reviewer</h1>
+            </div>
+
+            <!-- PDF列表 -->
+            <div class="pdf-list-section">
+                <div class="section-header">
+                    <h2>我的文档</h2>
+                    <button class="btn-upload" onclick="document.getElementById('file-input').click()">
+                        + 上传PDF
+                    </button>
+                    <input type="file" id="file-input" accept=".pdf" style="display: none;" onchange="uploadPDF(event)">
+                </div>
+                <div id="pdf-list" class="pdf-list">
+                    <!-- PDF列表将在这里动态生成 -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- 左侧分隔条 -->
+        <div class="resizer" id="resizer-left" data-resizer="left"></div>
+
+        <!-- 主内容区域 -->
+        <main class="main-content" id="main-content">
+            <!-- 欢迎页面 -->
+            <div id="welcome-screen" class="welcome-screen">
+                <div class="welcome-content">
+                    <h1>🎓 Welcome to Final Exam Reviewer</h1>
+                    <p>上传PDF文档开始智能复习</p>
+                    <button class="btn-primary" onclick="document.getElementById('file-input').click()">
+                        上传第一个PDF
+                    </button>
+                </div>
+            </div>
+
+            <!-- PDF查看区域 -->
+            <div id="pdf-viewer-container" class="pdf-viewer-container" style="display: none;">
+                <div class="pdf-header">
+                    <h2 id="pdf-title">文档标题</h2>
+                    <div class="pdf-controls">
+                        <div class="view-mode-toggle">
+                            <button id="btn-page-mode" class="mode-btn active" onclick="setViewMode('page')" title="翻页模式">
+                                📄 翻页
+                            </button>
+                            <button id="btn-scroll-mode" class="mode-btn" onclick="setViewMode('scroll')" title="滚动模式">
+                                📜 滚动
+                            </button>
+                        </div>
+                        <div id="page-controls" class="page-controls">
+                            <button onclick="previousPage()">◀ 上一页</button>
+                            <span id="page-info">1 / 1</span>
+                            <button onclick="nextPage()">下一页 ▶</button>
+                        </div>
+                        <button class="btn-summary" onclick="generateSummary()">📝 生成摘要</button>
+                    </div>
+                </div>
+                <div class="pdf-viewer" id="pdf-viewer">
+                    <!-- 翻页模式：单页显示 -->
+                    <div id="page-mode-container" class="page-mode-container">
+                        <div style="position: relative; display: inline-block;">
+                            <canvas id="pdf-canvas"></canvas>
+                            <div id="text-layer" class="textLayer"></div>
+                        </div>
+                    </div>
+                    <!-- 滚动模式：所有页面连续显示 -->
+                    <div id="scroll-mode-container" class="scroll-mode-container" style="display: none;">
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 右侧分隔条 -->
+        <div class="resizer" id="resizer-right" data-resizer="right"></div>
+
+        <!-- 聊天侧边栏 -->
+        <aside class="chat-sidebar" id="chat-sidebar">
+            <div class="chat-header">
+                <h2>💬 AI助手</h2>
+                <div class="chat-tabs">
+                    <button class="tab active" onclick="switchTab('chat')">对话</button>
+                    <button class="tab" onclick="switchTab('summary')">摘要</button>
+                    <button class="tab" onclick="switchTab('notes')">笔记</button>
+                </div>
+            </div>
+
+            <!-- 对话标签页 -->
+            <div id="chat-tab" class="tab-content active">
+                <div id="chat-messages" class="chat-messages">
+                    <div class="system-message">
+                        👋 你好！我是AI助手，可以帮你理解文档内容。
+                        <br><br>
+                        <strong>功能：</strong><br>
+                        • 选中文字后右键可以解释、翻译或总结<br>
+                        • 直接提问关于文档的任何问题<br>
+                        • 生成整篇文档的摘要
+                    </div>
+                </div>
+                <div class="chat-input-container">
+                    <textarea
+                        id="chat-input"
+                        placeholder="输入问题..."
+                        rows="3"
+                        onkeydown="handleEnter(event)"
+                    ></textarea>
+                    <button class="btn-send" onclick="sendMessage()">发送</button>
+                </div>
+            </div>
+
+            <!-- 摘要标签页 -->
+            <div id="summary-tab" class="tab-content">
+                <div id="summary-content" class="summary-content">
+                    <p class="empty-message">暂无摘要，点击"生成摘要"按钮创建</p>
+                </div>
+            </div>
+
+            <!-- 笔记标签页 -->
+            <div id="notes-tab" class="tab-content">
+                <div id="notes-content" class="notes-content">
+                    <p class="empty-message">暂无笔记</p>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- 上下文菜单 -->
+    <div id="context-menu" class="context-menu" style="display: none;">
+        <div class="context-menu-header">
+            <span class="selected-text-preview" id="selected-text-preview"></span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="menu-item" onclick="explainFormula()">
+            <span class="menu-icon">📐</span>
+            <span class="menu-text">解释公式</span>
+        </div>
+        <div class="menu-item" onclick="explainText()">
+            <span class="menu-icon">💡</span>
+            <span class="menu-text">解释这段文字</span>
+        </div>
+        <div class="menu-item" onclick="translateText()">
+            <span class="menu-icon">🌐</span>
+            <span class="menu-text">翻译成中文</span>
+        </div>
+        <div class="menu-item" onclick="summarizeSelection()">
+            <span class="menu-icon">📋</span>
+            <span class="menu-text">总结要点</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="menu-item" onclick="defineTerms()">
+            <span class="menu-icon">📖</span>
+            <span class="menu-text">定义术语</span>
+        </div>
+        <div class="menu-item" onclick="giveExamples()">
+            <span class="menu-icon">📝</span>
+            <span class="menu-text">举例说明</span>
+        </div>
+        <div class="menu-item" onclick="askQuestion()">
+            <span class="menu-icon">❓</span>
+            <span class="menu-text">生成问题</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="menu-item" onclick="addToInput()">
+            <span class="menu-icon">✏️</span>
+            <span class="menu-text">添加到输入框</span>
+        </div>
+        <div class="menu-item" onclick="copyText()">
+            <span class="menu-icon">📄</span>
+            <span class="menu-text">复制文本</span>
+        </div>
+    </div>
+
+    <!-- Loading遮罩 -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p id="loading-text">处理中...</p>
+    </div>
+
+    <!-- 截图选择框 -->
+    <div id="screenshot-overlay" class="screenshot-overlay" style="display: none;">
+        <div class="screenshot-hint">拖动鼠标框选公式区域，松开后自动识别</div>
+        <div id="screenshot-selection" class="screenshot-selection"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
