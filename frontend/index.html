@@ -76,6 +76,7 @@
                             <span id="page-info">1 / 1</span>
                             <button onclick="nextPage()">下一页 ▶</button>
                         </div>
+                        <button class="btn-formula" onclick="startScreenshotMode()" title="框选公式区域进行识别">📐 识别公式</button>
                         <button class="btn-summary" onclick="generateSummary()">📝 生成摘要</button>
                     </div>
                 </div>
@@ -190,6 +191,10 @@
         <div class="menu-item" onclick="copyText()">
             <span class="menu-icon">📄</span>
             <span class="menu-text">复制文本</span>
+        </div>
+        <div class="menu-item" onclick="hideContextMenu(); startScreenshotMode();">
+            <span class="menu-icon">📷</span>
+            <span class="menu-text">截图识别公式</span>
         </div>
     </div>
 

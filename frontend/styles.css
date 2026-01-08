@@ -246,6 +246,16 @@ body {
     background: #059669 !important;
 }
 
+.btn-formula {
+    background: #8b5cf6 !important;
+    color: white !important;
+    border: none !important;
+}
+
+.btn-formula:hover {
+    background: #7c3aed !important;
+}
+
 .pdf-viewer {
     flex: 1;
     overflow: auto;

@@ -32,19 +32,12 @@ document.addEventListener('DOMContentLoaded', () => {
     loadPDFList();
     setupEventListeners();
     setupResizers();
+    setupTextSelectionListener();
 });
 
 // 设置事件监听器
 function setupEventListeners() {
-    // 文本选择
-    document.addEventListener('mouseup', handleTextSelection);
-
-    // 隐藏上下文菜单
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.context-menu')) {
-            hideContextMenu();
-        }
-    });
+    // 点击其他地方隐藏菜单（由 setupTextSelectionListener 处理）
 }
 
 // ========== 可调整大小的面板 ==========
@@ -522,10 +515,28 @@ function addMessage(role, content, useMarkdown = true) {
     return messageDiv;
 }
 
-// Markdown 渲染函数
+// Markdown 渲染函数（支持 LaTeX）
 function renderMarkdown(text) {
     try {
-        return marked.parse(text);
+        const html = marked.parse(text);
+        // 创建临时容器来渲染 LaTeX
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+
+        // 使用 KaTeX 渲染数学公式
+        if (typeof renderMathInElement !== 'undefined') {
+            renderMathInElement(tempDiv, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\[', right: '\\]', display: true},
+                    {left: '\\(', right: '\\)', display: false}
+                ],
+                throwOnError: false
+            });
+        }
+
+        return tempDiv.innerHTML;
     } catch (e) {
         console.error('Markdown parsing error:', e);
         return text;
@@ -588,15 +599,41 @@ function handleEnter(event) {
 // ========== 文本选择功能 ==========
 
 function handleTextSelection(event) {
-    const selection = window.getSelection();
-    const text = selection.toString().trim();
+    // 延迟检测，等待选择完成
+    setTimeout(() => {
+        const selection = window.getSelection();
+        const text = selection.toString().trim();
 
-    if (text.length > 0 && currentPDF) {
-        selectedText = text;
-        showContextMenu(event.pageX, event.pageY, text);
-    } else {
-        hideContextMenu();
+        if (text.length > 0 && currentPDF) {
+            selectedText = text;
+
+            // 获取选区的位置
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+
+            // 在选区下方显示菜单
+            const menuX = rect.left + window.scrollX;
+            const menuY = rect.bottom + window.scrollY + 5;
+
+            showContextMenu(menuX, menuY, text);
+        }
+    }, 10);
+}
+
+// 监听鼠标松开事件来触发菜单
+function setupTextSelectionListener() {
+    const pdfViewer = document.getElementById('pdf-viewer');
+    if (pdfViewer) {
+        pdfViewer.addEventListener('mouseup', handleTextSelection);
     }
+
+    // 点击其他地方隐藏菜单
+    document.addEventListener('mousedown', (e) => {
+        const menu = document.getElementById('context-menu');
+        if (menu && !menu.contains(e.target)) {
+            hideContextMenu();
+        }
+    });
 }
 
 function showContextMenu(x, y, text) {
@@ -632,6 +669,198 @@ function showContextMenu(x, y, text) {
 
 function hideContextMenu() {
     document.getElementById('context-menu').style.display = 'none';
+}
+
+// ========== 公式解释功能 ==========
+
+async function explainFormula() {
+    if (!selectedText || !currentPDF) return;
+    hideContextMenu();
+
+    addMessage('user', `请解释公式: "${selectedText}"`);
+    const loadingMsg = addMessage('assistant', '正在分析公式...', false);
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/formula/explain`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pdf_id: currentPDF.id,
+                selected_text: selectedText,
+                page_number: currentPage
+            })
+        });
+
+        const result = await response.json();
+        if (result.explanation) {
+            updateMessage(loadingMsg, result.explanation, true);
+        } else {
+            updateMessage(loadingMsg, '❌ 公式解释失败: ' + (result.detail || '未知错误'), false);
+        }
+    } catch (error) {
+        console.error('Formula explanation failed:', error);
+        updateMessage(loadingMsg, '❌ 公式解释失败，请重试', false);
+    }
+}
+
+// 截图框选公式功能
+let isScreenshotMode = false;
+let screenshotStartX = 0;
+let screenshotStartY = 0;
+
+function startScreenshotMode() {
+    isScreenshotMode = true;
+    const overlay = document.getElementById('screenshot-overlay');
+    overlay.style.display = 'block';
+
+    overlay.onmousedown = handleScreenshotStart;
+    overlay.onmousemove = handleScreenshotMove;
+    overlay.onmouseup = handleScreenshotEnd;
+
+    // ESC 键取消
+    document.addEventListener('keydown', cancelScreenshot);
+}
+
+function cancelScreenshot(e) {
+    if (e.key === 'Escape') {
+        endScreenshotMode();
+    }
+}
+
+function endScreenshotMode() {
+    isScreenshotMode = false;
+    const overlay = document.getElementById('screenshot-overlay');
+    overlay.style.display = 'none';
+    document.getElementById('screenshot-selection').style.cssText = '';
+    document.removeEventListener('keydown', cancelScreenshot);
+}
+
+function handleScreenshotStart(e) {
+    screenshotStartX = e.clientX;
+    screenshotStartY = e.clientY;
+
+    const selection = document.getElementById('screenshot-selection');
+    selection.style.left = `${screenshotStartX}px`;
+    selection.style.top = `${screenshotStartY}px`;
+    selection.style.width = '0';
+    selection.style.height = '0';
+    selection.style.display = 'block';
+}
+
+function handleScreenshotMove(e) {
+    if (!isScreenshotMode || e.buttons !== 1) return;
+
+    const selection = document.getElementById('screenshot-selection');
+    const currentX = e.clientX;
+    const currentY = e.clientY;
+
+    const left = Math.min(screenshotStartX, currentX);
+    const top = Math.min(screenshotStartY, currentY);
+    const width = Math.abs(currentX - screenshotStartX);
+    const height = Math.abs(currentY - screenshotStartY);
+
+    selection.style.left = `${left}px`;
+    selection.style.top = `${top}px`;
+    selection.style.width = `${width}px`;
+    selection.style.height = `${height}px`;
+}
+
+async function handleScreenshotEnd(e) {
+    if (!isScreenshotMode) return;
+
+    const selection = document.getElementById('screenshot-selection');
+    const rect = selection.getBoundingClientRect();
+
+    // 如果选区太小，取消
+    if (rect.width < 20 || rect.height < 20) {
+        endScreenshotMode();
+        return;
+    }
+
+    // 获取 PDF viewer 中的对应区域截图
+    try {
+        const imageBase64 = await captureScreenshotArea(rect);
+        endScreenshotMode();
+
+        if (imageBase64) {
+            await explainFormulaFromImage(imageBase64);
+        }
+    } catch (error) {
+        console.error('Screenshot failed:', error);
+        endScreenshotMode();
+        showToast('截图失败，请重试', 'error');
+    }
+}
+
+async function captureScreenshotArea(rect) {
+    // 获取当前显示的 canvas
+    let canvas;
+    if (viewMode === 'scroll') {
+        // 滚动模式：找到可见的 canvas
+        const container = document.getElementById('scroll-mode-container');
+        const canvases = container.querySelectorAll('.pdf-page-canvas');
+        for (const c of canvases) {
+            const cRect = c.getBoundingClientRect();
+            if (cRect.top < rect.bottom && cRect.bottom > rect.top) {
+                canvas = c;
+                break;
+            }
+        }
+    } else {
+        canvas = document.getElementById('pdf-canvas');
+    }
+
+    if (!canvas) return null;
+
+    const canvasRect = canvas.getBoundingClientRect();
+
+    // 计算选区在 canvas 上的相对位置
+    const scaleX = canvas.width / canvasRect.width;
+    const scaleY = canvas.height / canvasRect.height;
+
+    const cropX = Math.max(0, (rect.left - canvasRect.left) * scaleX);
+    const cropY = Math.max(0, (rect.top - canvasRect.top) * scaleY);
+    const cropWidth = Math.min(rect.width * scaleX, canvas.width - cropX);
+    const cropHeight = Math.min(rect.height * scaleY, canvas.height - cropY);
+
+    // 创建临时 canvas 来裁剪
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = cropWidth;
+    tempCanvas.height = cropHeight;
+    const ctx = tempCanvas.getContext('2d');
+
+    ctx.drawImage(canvas, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+    return tempCanvas.toDataURL('image/png');
+}
+
+async function explainFormulaFromImage(imageBase64) {
+    if (!currentPDF) return;
+
+    addMessage('user', '📐 [截图公式识别]');
+    const loadingMsg = addMessage('assistant', '正在识别并分析公式...', false);
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/formula/explain`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pdf_id: currentPDF.id,
+                image_base64: imageBase64,
+                page_number: currentPage
+            })
+        });
+
+        const result = await response.json();
+        if (result.explanation) {
+            updateMessage(loadingMsg, result.explanation, true);
+        } else {
+            updateMessage(loadingMsg, '❌ 公式识别失败: ' + (result.detail || '未知错误'), false);
+        }
+    } catch (error) {
+        console.error('Formula recognition failed:', error);
+        updateMessage(loadingMsg, '❌ 公式识别失败，请重试', false);
+    }
 }
 
 async function explainText() {

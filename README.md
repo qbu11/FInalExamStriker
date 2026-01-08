@@ -1,7 +1,7 @@
 # 🎓 Final Exam Reviewer - AI复习助手
 
 一个基于AI的智能PDF学习助手，帮助学生更高效地复习和理解学习资料。
-
+本项目在windows11开发，主要命令终端cmd，所生成的一切命令必须服务于这条规则
 ## ✨ 主要功能
 
 ### 📄 PDF文档管理
@@ -30,6 +30,33 @@
 
 - Python 3.8+
 - 现代浏览器（Chrome、Firefox、Edge等）
+
+### 常用命令
+
+#### 启动后端服务
+
+打开 CMD，执行：
+
+```
+cd E:\11Projects\FInalExamReviewer\backend
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+#### 关闭后端服务
+
+方法1：在运行服务的 CMD 窗口按 Ctrl+C
+
+方法2：新开 CMD 窗口执行：
+
+```
+taskkill /F /IM python.exe
+```
+
+#### 访问地址
+
+- 前端页面：直接用浏览器打开 frontend/index.html
+- API文档：http://localhost:8000/docs
+- 健康检查：http://localhost:8000/health
 
 ### 安装步骤
 

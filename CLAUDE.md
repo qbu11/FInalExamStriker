@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+本项目在Windows11 开发，常用终端为CMD，故一切启动命令必须符合系统要求
+
 ## ⚠️ 重要：上下文管理规则
 
 **在每次对话中，Claude 必须遵循以下规则：**
